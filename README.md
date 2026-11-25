@@ -1,55 +1,59 @@
 # Raptor-Mesh (`RMESH/1`)
 
+<p align="left">
+  <strong>English</strong> | <a href="README.pt-BR.md">Português (Brasil)</a>
+</p>
+
 [![CI](https://img.shields.io/badge/Go-1.25%2B-00ADD8?logo=go&logoColor=white)](https://go.dev/)
-[![Platform](https://img.shields.io/badge/Windows-Native%20Background-0078D6?logo=windows&logoColor=white)](#execucao-nativa-e-silenciosa-no-windows-sem-admin)
-[![Protocol](https://img.shields.io/badge/Transport-QUIC%200--RTT%20%7C%20H3%20%7C%20H2%20%7C%20TFO-brightgreen)](#arquitetura)
+[![Platform](https://img.shields.io/badge/Windows-Native%20Background-0078D6?logo=windows&logoColor=white)](#native-silent-windows-execution-no-admin-required)
+[![Protocol](https://img.shields.io/badge/Transport-QUIC%200--RTT%20%7C%20H3%20%7C%20H2%20%7C%20TFO-brightgreen)](#architecture)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-**Raptor-Mesh** é um acelerador de rede local de baixíssima latência e protocolo de transporte binário (**`RMESH/1`** sobre **QUIC 0-RTT**) escrito em **Go**, projetado para rodar nativamente no Windows (~30 MB de RAM, sem janela preta e sem precisar de VPS ou privilégios de Administrador) escutando em **`127.0.0.1:17908`**.
+**Raptor-Mesh** is an ultra-low-latency local network accelerator and custom binary transport protocol (**`RMESH/1`** over **QUIC 0-RTT**) written in **Go**, designed to run natively on Windows (~30 MB RAM, zero console window, no VPS or Administrator privileges required) listening on **`127.0.0.1:17908`**.
 
-Ele reúne em um único projeto open-source otimizações que normalmente exigiriam combinar múltiplas ferramentas separadas (como *SmartDNS + proxy local + túnel QUIC + tuning Winsock2*):
+It unifies in a single open-source codebase optimizations that typically require stitching multiple tools together (*SmartDNS + local proxy + QUIC tunnel + Winsock2 kernel tuning*):
 
-- **Geo/ECS-Aware Racing DNS + Cache Lock-Free SWR (`< 5 µs`)** — corre em paralelo contra `1.1.1.1`, `8.8.8.8`, `9.9.9.9` e `1.0.0.1` para APIs/domínios globais, mas prioriza automaticamente o **DNS do seu provedor (`isp-geo`) + ECS (`8.8.8.8`/`8.8.4.4`)** para CDNs de mídia e streaming (Instagram/Meta FNA, YouTube GGC, Netflix OCA, Twitch, Akamai, etc.) para você nunca ser desviado para PoPs nos EUA.
-- **Happy Eyeballs v2 Agressivo + Placar Preditivo EWMA** — dispara dials concorrentes (stagger de 15 ms) entre IPv4 e IPv6, fixa o IP campeão de menor RTT e faz *hedged dialing* automático para eliminar travamentos de 250–380 ms em rotas Anycast/IPv6 instáveis.
-- **Speculative TCP Pre-Connect Pool com Checagem `ws2_32.dll!WSAPoll`** — mantém sockets TCP pré-conectados na porta 443 para seus sites favoritos e valida a saúde do socket em ~1 µs antes de entregá-lo ao navegador (zero sockets mortos `FIN`/`RST` e zero vazamento de conexões em domínios aleatórios).
-- **4-Stripe Sharded HTTP/3 (QUIC 0-RTT) + HTTP/2 Multiplexado + Hedged Tail-Latency Racing** — para chamadas via Fast-Path (APIs, CLIs, automações e benchmark), mantém 4 stripes paralelos pré-aquecidos com auto-calibração H3 vs H2, cache compartilhado de tickets TLS 1.3 (4096 slots) e suporte a streaming SSE (`Flusher`).
-- **Protocolo Binário Próprio `RMESH/1` sobre QUIC 0-RTT (`raptor-client` ↔ `raptor-server`)** — opcionalmente permite tunelar todo o tráfego em modo 2-hop sobre UDP/QUIC com 0-RTT Early Data (localmente ou apontado para uma VPS remota).
-- **Tuning Nativo de Kernel Windows (Winsock2)** — ativa `TCP_FASTOPEN`, `SIO_LOOPBACK_FAST_PATH` e `TCP_NODELAY`, **preservando intacto o *TCP Receive Window Auto-Tuning* do Windows** nas conexões WAN para não limitar banda em links de fibra.
-- **Fail-Safe Auto-PAC + Bypass Automático para Jogos/Anti-Cheat** — gera dinamicamente `http://127.0.0.1:17908/raptor/proxy.pac` retornando `PROXY 127.0.0.1:17908; DIRECT`. Se o serviço for fechado, o navegador volta automaticamente para conexão direta sem derrubar sua internet. Domínios de rede local e servidores de clientes de jogos (como Riot Games / Vanguard) vão direto (`DIRECT`) por padrão.
+- **Geo/ECS-Aware Racing DNS + Lock-Free SWR Cache (`< 5 µs`)** — races `1.1.1.1`, `8.8.8.8`, `9.9.9.9`, and `1.0.0.1` in parallel for global APIs/domains, while automatically prioritizing your **ISP DNS (`isp-geo`) + ECS-capable resolvers (`8.8.8.8`/`8.8.4.4`)** for media and streaming CDNs (Meta/Instagram FNA, YouTube GGC, Netflix OCA, Twitch, Akamai, etc.) so media traffic always hits local ISP edge caches instead of distant POPs.
+- **Aggressive Happy Eyeballs v2 + Predictive EWMA Route Scoreboard** — launches parallel IPv4/IPv6 dials (15 ms stagger), pins the lowest-RTT champion IP, and performs adaptive hedged dialing to eliminate 250–380 ms IPv6/Anycast stalls.
+- **Speculative TCP Pre-Connect Pool with `ws2_32.dll!WSAPoll` Liveness Checks** — keeps fresh TCP sockets pre-connected on port 443 for your favorite sites and verifies socket health in ~1 µs before handing them to the browser (zero dead `FIN`/`RST` sockets and zero socket leaks on one-off domains).
+- **4-Stripe Sharded HTTP/3 (QUIC 0-RTT) + HTTP/2 Multiplexing + Hedged Tail-Latency Racing** — for Fast-Path calls (APIs, CLIs, automation, and benchmarks), maintains 4 pre-warmed parallel transport stripes with live H3 vs H2 auto-calibration, a shared 4096-entry TLS 1.3 session ticket cache, and SSE (`Flusher`) streaming support.
+- **Custom Binary `RMESH/1` Protocol over QUIC 0-RTT (`raptor-client` ↔ `raptor-server`)** — optionally tunnels traffic in 2-hop mode over UDP/QUIC with 0-RTT Early Data (locally or to a remote VPS).
+- **Native Windows Kernel Hygiene (Winsock2)** — enables `TCP_FASTOPEN`, `SIO_LOOPBACK_FAST_PATH`, and `TCP_NODELAY`, while **preserving Windows TCP Receive Window Auto-Tuning** on WAN sockets so high-speed fiber downloads are never capped.
+- **Fail-Safe Auto-PAC + Automatic Gaming/Anti-Cheat Bypass** — dynamically serves `http://127.0.0.1:17908/raptor/proxy.pac` returning `PROXY 127.0.0.1:17908; DIRECT`. If the daemon ever stops, browsers automatically fall back to `DIRECT` without breaking your internet connection. Local LAN subnets and game client/anti-cheat domains (e.g. Riot Games / Vanguard) automatically bypass to `DIRECT`.
 
 ---
 
-## Como o Raptor-Mesh se Compara a Projetos Existentes?
+## How Does Raptor-Mesh Compare to Existing Projects?
 
-| Projeto | Foco Principal | Precisa de VPS externa? | DNS Geo/ECS + Happy Eyeballs EWMA | Speculative TCP Pool (`WSAPoll`) | Auto-Instalação Windows Sem Admin + PAC Fail-Safe |
+| Project | Primary Focus | Requires Remote VPS? | Geo/ECS DNS + Happy Eyeballs EWMA | Speculative TCP Pool (`WSAPoll`) | Zero-Admin Windows Autostart + Fail-Safe PAC |
 |---|---|:---:|:---:|:---:|:---:|
-| **Clash (Mihomo) / sing-box** | Roteador multi-protocolo (TUN/YAML/subscriptions) | Geralmente sim | Parcial / externo | Não | Não (requer GUI/TUN) |
-| **Hysteria 2** | Túnel UDP/QUIC resistente a perda de pacotes | Sim | Não | Não | Não |
-| **SmartDNS** | Apenas resolução DNS rápida | Não | Sim (DNS apenas) | Não | Serviço apenas |
-| **Raptor-Mesh** | **Acelerador local Zero-VPS + túnel opcional `RMESH/1` QUIC 0-RTT** | **Não (opcional)** | **Sim (integrado)** | **Sim (integrado)** | **Sim (1 comando)** |
+| **Clash (Mihomo) / sing-box** | Multi-protocol proxy router (TUN/YAML/subscriptions) | Usually yes | Partial / external | No | No (requires GUI/TUN) |
+| **Hysteria 2** | Loss-resilient UDP/QUIC tunnel | Yes | No | No | No |
+| **SmartDNS** | Fast local DNS resolution only | No | Yes (DNS only) | No | Service only |
+| **Raptor-Mesh** | **Zero-VPS local edge accelerator + optional `RMESH/1` QUIC 0-RTT tunnel** | **No (optional)** | **Yes (built-in)** | **Yes (built-in)** | **Yes (1 command)** |
 
 ---
 
-## Arquitetura
+## Architecture
 
 ```mermaid
 flowchart LR
-    subgraph Apps["Navegadores (Chrome / Edge / Brave / Firefox / Zen) & APIs"]
+    subgraph Apps["Browsers (Chrome / Edge / Brave / Firefox / Zen) & APIs"]
         B["Browser via Auto-PAC<br/>(HTTPS CONNECT)"]
         F["APIs / CLIs / Benchmark<br/>(Fast-Path X-Raptor-Target)"]
     end
 
     subgraph Client["raptor-client / raptor-client-bg (127.0.0.1:17908)"]
-        PAC["/raptor/proxy.pac<br/>(Fail-Safe + Bypass LAN/Jogos)"]
+        PAC["/raptor/proxy.pac<br/>(Fail-Safe + LAN/Gaming Bypass)"]
         ING["Ingress Router<br/>(Loopback Fast Path + TCP_NODELAY)"]
-        DNS["Geo/ECS-Aware Racing DNS<br/>(SWR Lock-Free < 5 µs)"]
-        HE["Happy Eyeballs v2 + Placar EWMA"]
+        DNS["Geo/ECS-Aware Racing DNS<br/>(Lock-Free SWR < 5 µs)"]
+        HE["Happy Eyeballs v2 + EWMA Scoreboard"]
         TCP["Speculative TCP Pool<br/>(WSAPoll Liveness Check)"]
         H3H2["4-Stripe Sharded Pool<br/>(HTTP/3 QUIC 0-RTT + HTTP/2 + Hedge)"]
-        TUN["RMESH/1 QUIC 0-RTT Client<br/>(Opcional p/ VPS)"]
+        TUN["RMESH/1 QUIC 0-RTT Client<br/>(Optional VPS Relay)"]
     end
 
-    subgraph Server["raptor-server (Opcional: UDP :17909)"]
+    subgraph Server["raptor-server (Optional: UDP :17909)"]
         RS["RMESH/1 QUIC 0-RTT Egress"]
     end
 
@@ -58,57 +62,57 @@ flowchart LR
     ING --> DNS --> HE
     ING -- "CONNECT (Browser)" --> TCP
     ING -- "Fast-Path (APIs/CLIs)" --> H3H2
-    ING -- "Modo -upstream" --> TUN
+    ING -- "-upstream mode" --> TUN
     TUN == "QUIC 0-RTT Binary Mux" ==> RS
 ```
 
 ---
 
-## Execução Nativa e Silenciosa no Windows (Sem Admin)
+## Native Silent Windows Execution (No Admin Required)
 
-O diferencial prático do Raptor-Mesh no dia a dia é rodar **100% nativo no Windows**, sem precisar de Docker, WSL, drivers TUN ou janelas de terminal abertas:
+A core practical advantage of Raptor-Mesh is running **100% natively on Windows** with no Docker, no WSL, no TUN drivers, and no visible terminal windows:
 
-### 1. Compilar (ou baixar o `.zip` em Releases)
-Pré-requisito para compilar do código-fonte: [Go 1.25+](https://go.dev/dl/) (`winget install --id GoLang.Go --exact`).
+### 1. Build from Source (or download the pre-built `.zip` from Releases)
+Build requirement: [Go 1.25+](https://go.dev/dl/) (`winget install --id GoLang.Go --exact`).
 
 ```powershell
 .\scripts\build.ps1
 ```
 
-Isso executa os testes unitários (`go test ./...`) e gera 4 binários estáticos otimizados em `bin\`:
-- `raptor-client-bg.exe` — binário **sem janela de console** (`-H=windowsgui`) para segundo plano;
-- `raptor-client.exe` — versão de console para testes/debug;
-- `raptor-server.exe` — servidor `RMESH/1` sobre UDP/QUIC 0-RTT;
-- `raptor-bench.exe` — suíte de benchmark End-to-End concorrente.
+This runs all unit tests (`go test ./...`) and builds 4 optimized static binaries under `bin\`:
+- `raptor-client-bg.exe` — **windowless** background binary (`-H=windowsgui`);
+- `raptor-client.exe` — console version for testing and debugging;
+- `raptor-server.exe` — `RMESH/1` UDP/QUIC 0-RTT server;
+- `raptor-bench.exe` — concurrent End-to-End latency benchmark suite.
 
-### 2. Instalar Inicialização Automática (Task Scheduler + Auto-PAC Fail-Safe)
+### 2. Install Automatic Startup (Task Scheduler + Fail-Safe Auto-PAC)
 ```powershell
 .\scripts\install_autostart.ps1
 ```
 
-O que esse único comando faz (sem pedir elevação de Administrador):
-1. Registra a tarefa **`Raptor-Mesh`** no Agendador de Tarefas do Windows para iniciar `raptor-client-bg.exe` silenciosamente no seu logon (sem limite de 72h, ativo na bateria e com reinício automático em caso de falha).
-2. Sobe o serviço imediatamente e aguarda `http://127.0.0.1:17908/raptor/health` responder `200 OK`.
-3. Ativa o **Script de configuração automática (`AutoConfigURL`)** do Windows apontando para `http://127.0.0.1:17908/raptor/proxy.pac` e notifica o WinINet na hora — Chrome, Edge e Brave passam a usar o Raptor-Mesh imediatamente sem reiniciar o PC.
-   - *No Firefox / Zen Browser:* basta garantir que **Configurações → Configurações de rede → "Usar as configurações de proxy do sistema"** esteja marcado.
+This single command (requiring **no Administrator rights**):
+1. Registers the **`Raptor-Mesh`** Windows Scheduled Task to start `raptor-client-bg.exe` silently at logon (no 72-hour timeout, battery-safe, automatic restart on failure).
+2. Starts the service immediately and verifies `http://127.0.0.1:17908/raptor/health` returns `200 OK`.
+3. Configures Windows **Automatic proxy setup (`AutoConfigURL`)** to `http://127.0.0.1:17908/raptor/proxy.pac` and refreshes WinINet immediately — Chrome, Edge, and Brave pick it up right away without rebooting.
+   - *Firefox / Zen Browser:* verify **Settings → Network Settings → "Use system proxy settings"** is selected.
 
-### 3. Monitorar ou Desinstalar Limpamente
+### 3. Monitor or Cleanly Uninstall
 ```powershell
-# Ver status da tarefa, PID, RAM, DNS Geo/ECS e hits do pool TCP ao vivo
+# Live task status, PID, RAM usage, Geo/ECS DNS stats, and TCP pool hit ratio
 .\scripts\status_raptor.ps1
 
-# Painel JSON completo no navegador
+# Full JSON telemetry endpoint in your browser
 # http://127.0.0.1:17908/raptor/stats
 
-# Remover tarefa do Windows e restaurar proxy padrão em 1 segundo
+# Unregister task, stop daemon, and restore default Windows proxy settings
 .\scripts\uninstall_autostart.ps1
 ```
 
 ---
 
-## Totalmente Customizável (`config/targets.json`)
+## Fully Customizable (`config/targets.json`)
 
-Você controla exatamente quais sites e APIs ficam pré-aquecidos editando [config/targets.json](config/targets.json):
+Tailor pre-warming to your daily browsing or API stack by editing [config/targets.json](config/targets.json):
 
 ```json
 {
@@ -134,79 +138,79 @@ Você controla exatamente quais sites e APIs ficam pré-aquecidos editando [conf
 }
 ```
 
-### Entendendo os dois modos de alvo:
-- **Alvos de Navegador (`"tcp_only": true`) — Recomendado para seus 15–25 sites favoritos:**
-  - Mantém **DNS Geo/ECS SWR + IP Campeão EWMA + 1 socket TCP especulativo verificado via `WSAPoll`**.
-  - **Não envia** sondas HTTP `HEAD /` periódicas em segundo plano — zero risco de disparar anti-bot/Cloudflare/rate-limit e consumo mínimo de rede (seguro inclusive durante jogos online).
-- **Alvos de API / Fast-Path (`"tcp_only": false`):**
-  - Além de DNS + TCP Pool, calibra e mantém 4 stripes quentes de **HTTP/3 (QUIC 0-RTT)** e **HTTP/2** prontos para receber requisições imediatas com 0 ms de handshake via cabeçalho `X-Raptor-Target`.
+### Target Modes
+- **Browser Targets (`"tcp_only": true`) — Recommended for your top 15–25 daily websites:**
+  - Keeps **Geo/ECS SWR DNS + EWMA Champion IP + 1 verified-alive speculative TCP socket (`WSAPoll`)** ready.
+  - Sends **zero** background HTTP `HEAD /` probes — preventing anti-bot/Cloudflare/rate-limit triggers and keeping background network noise near zero (safe during competitive online gaming).
+- **API / Fast-Path Targets (`"tcp_only": false`):**
+  - Additionally calibrates and maintains 4 warm **HTTP/3 (QUIC 0-RTT)** and **HTTP/2** stripes ready for zero-handshake requests via the `X-Raptor-Target` header.
 
-Após editar `config/targets.json`, aplique reiniciando a tarefa:
+After editing `config/targets.json`, reload the background task:
 ```powershell
 Stop-ScheduledTask "Raptor-Mesh"; Start-ScheduledTask "Raptor-Mesh"
 ```
 
 ---
 
-## Modo Cliente ↔ Servidor Remoto (`RMESH/1` QUIC 0-RTT)
+## Remote Client ↔ Server Mode (`RMESH/1` over QUIC 0-RTT)
 
-Se você quiser usar o protocolo binário `RMESH/1` através de uma VPS própria:
+To tunnel traffic through your own remote VPS using the `RMESH/1` binary protocol:
 
 ```powershell
-# No servidor (VPS Linux ou Windows — libere UDP/17909 no firewall)
+# On your VPS (Linux or Windows — open UDP/17909 on firewall)
 ./raptor-server -listen 0.0.0.0:17909
 
-# No seu PC Windows (modo console)
-.\bin\raptor-client.exe -listen 127.0.0.1:17908 -upstream SEU_IP_VPS:17909 -tunnel-conns 4
+# On your local Windows machine (console mode)
+.\bin\raptor-client.exe -listen 127.0.0.1:17908 -upstream YOUR_VPS_IP:17909 -tunnel-conns 4
 
-# Ou registrando direto no Agendador de Tarefas
-.\scripts\install_autostart.ps1 -Upstream SEU_IP_VPS:17909
+# Or install directly into Task Scheduler pointing to your VPS
+.\scripts\install_autostart.ps1 -Upstream YOUR_VPS_IP:17909
 ```
 
 ---
 
-## Benchmark End-to-End Integrado (`:7897` vs `:17908`)
+## Built-in End-to-End Benchmark (`:7897` vs `:17908`)
 
-O projeto inclui um benchmark concorrente nativo que dispara rajadas simultâneas **100% vivas contra os servidores reais (zero cache de resposta HTTP)** comparando um proxy tradicional na porta `7897` (detecta automaticamente o Clash se estiver rodando; caso contrário, sobe um proxy baseline honesto em `:7897` sem atrasos artificiais) contra o Raptor-Mesh na porta `17908`:
+Raptor-Mesh ships with a concurrent End-to-End benchmark that sends **100% live upstream requests (zero HTTP response caching)** comparing a traditional proxy on port `7897` (auto-detects Clash if running, or spawns an honest, un-throttled baseline proxy on `:7897`) against Raptor-Mesh on port `17908`:
 
 ```powershell
-# Benchmark no modo Direct Edge Accelerator
+# Direct Edge Accelerator mode benchmark
 .\scripts\run_benchmark.ps1 -Concurrency 6 -Rounds 3
 
-# Benchmark no modo 2-Hop completo (raptor-client :17908 <-> RMESH/1 QUIC 0-RTT <-> raptor-server :17909)
+# Full 2-Hop RMESH/1 QUIC 0-RTT relay benchmark (client :17908 <-> server :17909)
 .\scripts\run_benchmark.ps1 -MeshRelay -Concurrency 6 -Rounds 3
 ```
 
-### Nota Técnica Honesta sobre Navegador (`CONNECT`) vs Fast-Path
-- **No modo Fast-Path (`X-Raptor-Target` / APIs / CLIs / benchmark):** o Raptor-Mesh reaproveita seu pool multiplexado 4-stripe **HTTP/3 (QUIC 0-RTT) + HTTP/2** já autenticado, entregando reduções reais típicas de **2x a >5x** (cortando DNS + TCP + TLS para 1 RTT puro até o PoP mais próximo).
-- **No navegador comum via proxy HTTPS `CONNECT`:** o TLS é negociado ponta-a-ponta entre o navegador e o site (garantindo privacidade total e zero avisos de certificado). Nesse modo, o Raptor-Mesh acelera via **DNS Geo/ECS SWR (`< 5 µs`) + Happy Eyeballs v2 EWMA (evitando stalls IPv6 de 250–380 ms) + Speculative TCP Pool (`WSAPoll`) + `TCP_FASTOPEN`**.
+### Honest Engineering Note: Browser `CONNECT` vs Fast-Path
+- **Fast-Path Mode (`X-Raptor-Target` / APIs / CLIs / Benchmark):** reuses Raptor-Mesh's pre-warmed 4-stripe **HTTP/3 (QUIC 0-RTT) + HTTP/2** multiplexed pools, eliminating DNS + TCP + TLS handshakes down to a single physical RTT (typically **2x to >5x** real speedup).
+- **Standard Browser HTTPS `CONNECT`:** TLS stays strictly end-to-end encrypted between your browser and each website (zero MITM, zero custom root CA warnings). In this mode, Raptor-Mesh accelerates browsing through **Geo/ECS SWR DNS (`< 5 µs`) + Happy Eyeballs v2 EWMA (eliminating 250–380 ms IPv6 stalls) + Speculative TCP Pool (`WSAPoll`) + `TCP_FASTOPEN`**.
 
 ---
 
-## Estrutura do Repositório
+## Repository Layout
 
 ```text
 ├── cmd/
-│   ├── raptor-client/          # Edge proxy local (127.0.0.1:17908)
-│   ├── raptor-server/          # Servidor RMESH/1 sobre QUIC 0-RTT (UDP :17909)
-│   └── raptor-bench/           # Benchmark E2E concorrente (:7897 vs :17908)
+│   ├── raptor-client/          # Local edge proxy (127.0.0.1:17908)
+│   ├── raptor-server/          # RMESH/1 QUIC 0-RTT server (UDP :17909)
+│   └── raptor-bench/           # Concurrent E2E benchmark (:7897 vs :17908)
 ├── config/
-│   └── targets.json            # Lista customizável de domínios prioritários
+│   └── targets.json            # Customizable priority targets list
 ├── internal/
-│   ├── config/                 # Carregamento de configuração
-│   ├── dns/                    # Geo/ECS-Aware Racing DNS + Cache SWR + testes
-│   ├── prewarmer/              # Daemon preditivo + limpeza periódica 24/7
-│   ├── protocol/               # Wire protocol RMESH/1 + Ed25519 TLS + testes
-│   ├── proxy/                  # Ingress HTTP/CONNECT/PAC/SSE + baseline proxy
-│   └── transport/              # H3/H2 4-stripe, Happy Eyeballs, TCP Pool, QUIC, Winsock2
+│   ├── config/                 # Configuration loader
+│   ├── dns/                    # Geo/ECS-Aware Racing DNS + SWR Cache + tests
+│   ├── prewarmer/              # Predictive pre-warmer + 24/7 cache pruning
+│   ├── protocol/               # RMESH/1 binary wire framing + Ed25519 TLS + tests
+│   ├── proxy/                  # HTTP/CONNECT/PAC/SSE ingress + baseline proxy
+│   └── transport/              # 4-stripe H3/H2, Happy Eyeballs, TCP Pool, QUIC, Winsock2
 └── scripts/
-    ├── build.ps1               # Testes + compilação (incluindo -H=windowsgui)
-    ├── install_autostart.ps1   # Instalação 1-comando (Task Scheduler + Auto-PAC)
-    ├── uninstall_autostart.ps1 # Remoção limpa + restauração do proxy do Windows
-    ├── status_raptor.ps1       # Telemetria ao vivo no terminal
-    └── run_benchmark.ps1       # Runner automatizado do benchmark E2E
+    ├── build.ps1               # Tests + build (including -H=windowsgui)
+    ├── install_autostart.ps1   # 1-command Task Scheduler + Fail-Safe Auto-PAC setup
+    ├── uninstall_autostart.ps1 # Clean teardown & Windows proxy restore
+    ├── status_raptor.ps1       # Live CLI telemetry dashboard
+    └── run_benchmark.ps1       # Automated E2E benchmark runner
 ```
 
-## Licença
+## License
 
-Distribuído sob a licença **MIT**. Veja [LICENSE](LICENSE) para mais detalhes.
+Released under the **MIT License**. See [LICENSE](LICENSE) for details.
