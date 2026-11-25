@@ -1,0 +1,78 @@
+{
+  "listen_addr": "127.0.0.1:17908",
+  "server_addr": "127.0.0.1:17909",
+  "dns_resolvers": [
+    "1.1.1.1:53",
+    "8.8.8.8:53",
+    "9.9.9.9:53",
+    "1.0.0.1:53"
+  ],
+  "prewarm_interval_sec": 12,
+  "speculative_tcp_pool_size": 3,
+  "targets": [
+    {
+      "host": "ipinfo.io",
+      "port": 443,
+      "warm_path": "/json",
+      "warm_method": "HEAD",
+      "prefer_h3": true
+    },
+    {
+      "host": "www.google.com",
+      "port": 443,
+      "warm_path": "/generate_204",
+      "warm_method": "GET",
+      "prefer_h3": true
+    },
+    {
+      "host": "google.com",
+      "port": 443,
+      "warm_path": "/generate_204",
+      "warm_method": "GET",
+      "prefer_h3": true
+    },
+    {
+      "host": "github.com",
+      "port": 443,
+      "warm_path": "/",
+      "warm_method": "HEAD",
+      "prefer_h3": false
+    },
+    {
+      "host": "github.githubassets.com",
+      "port": 443,
+      "warm_path": "/favicons/favicon.svg",
+      "warm_method": "HEAD",
+      "prefer_h3": true
+    },
+    {
+      "host": "api.openai.com",
+      "port": 443,
+      "warm_path": "/",
+      "warm_method": "HEAD",
+      "prefer_h3": true
+    },
+    {
+      "host": "claude.ai",
+      "port": 443,
+      "warm_path": "/",
+      "warm_method": "HEAD",
+      "prefer_h3": true
+    },
+    {
+      "host": "www.youtube.com",
+      "port": 443,
+      "tcp_only": true
+    },
+    {
+      "host": "i.ytimg.com",
+      "port": 443,
+      "tcp_only": true
+    },
+    {
+      "host": "www.reddit.com",
+      "port": 443,
+      "tcp_only": true
+    }
+  ]
+}

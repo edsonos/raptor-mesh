@@ -1,0 +1,38 @@
+name: CI
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  test-and-build:
+    strategy:
+      matrix:
+        os: [ windows-latest, ubuntu-latest ]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.25'
+          check-latest: true
+      - name: Run unit tests
+        run: go test -v ./...
+      - name: Build binaries (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path bin | Out-Null
+          go build -trimpath -ldflags="-s -w" -o bin\raptor-client.exe .\cmd\raptor-client
+          go build -trimpath -ldflags="-s -w -H=windowsgui" -o bin\raptor-client-bg.exe .\cmd\raptor-client
+          go build -trimpath -ldflags="-s -w" -o bin\raptor-server.exe .\cmd\raptor-server
+          go build -trimpath -ldflags="-s -w" -o bin\raptor-bench.exe .\cmd\raptor-bench
+      - name: Build binaries (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          mkdir -p bin
+          go build -trimpath -ldflags="-s -w" -o bin/raptor-client ./cmd/raptor-client
+          go build -trimpath -ldflags="-s -w" -o bin/raptor-server ./cmd/raptor-server
+          go build -trimpath -ldflags="-s -w" -o bin/raptor-bench ./cmd/raptor-bench

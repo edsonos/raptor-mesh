@@ -1,0 +1,16 @@
+# Compiled binaries & release archives (upload dist/*.zip to GitHub Releases instead of committing)
+bin/
+dist/
+*.exe
+*.out
+
+# Local runtime logs & private user overrides
+logs/
+*.log
+config/targets.local.json
+
+# OS / IDE clutter
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
